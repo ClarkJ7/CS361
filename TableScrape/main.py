@@ -2,13 +2,15 @@ from flask import Flask
 from flask_restful import Api, Resource, abort
 from bs4 import BeautifulSoup
 import csv, requests
+import pandas
+import lxml
 
 
 app = Flask(__name__)
 api = Api(app)
 
 
-def abort_if_link_bad(page):
+def check_link(page):
     if page.status_code > 200:
         abort(404, message="Bad Link")
     else:
@@ -17,36 +19,28 @@ def abort_if_link_bad(page):
 
 class ReturnTest(Resource):
 
-    def get(self, search):
+    def get(self, search, table_num):
+        # Obtain wikipedia URL and designate CSV output
         link = "https://en.wikipedia.org/wiki/" + search
-        #filename = search + ".csv"
-        filename = "test.csv"
-        print("Link is: " + link + "\n")
-        #print("Filename is: " + filename + "\n")
+        filename = search + ".csv"
 
+        # Verify wikipedia link works, abort if not
         page = requests.get(link)
-        abort_if_link_bad(page)
+        check_link(page)
 
-        soup = BeautifulSoup(page.content, 'html.parser')
-        table = soup.find("table", {'class': ["infobox vcard", "infobox bordered vcard"]})
+        # Obtain tables into panda dataframe
+        dfs = pandas.read_html(link)
 
-        list_of_rows = []
-        for row in table.find("tbody").find_all("tr"):
-            list_of_cells = []
-            for cell in row.find_all(["th", "td"]):
-                text = cell.get_text()
-                list_of_cells.append(text)
-            list_of_rows.append(list_of_cells)
+        # Write desired table into CSV
+        dfs[table_num].to_csv(filename)
+        test = dfs[table_num]
+        test_send = test.to_dict()
 
-        with open(filename, "w") as output:
-            csvwriter = csv.writer(output)
-            for item in list_of_rows:
-                csvwriter.writerow(item)
-        return "Table Output"
+        return test_send
 
 
-api.add_resource(ReturnTest, "/<string:search>")
+api.add_resource(ReturnTest, "/<string:search>/<int:table_num>")
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)
