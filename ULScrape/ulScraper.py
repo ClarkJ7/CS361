@@ -1,7 +1,8 @@
 from flask import Flask
 from flask_restful import Api, Resource, abort
 from bs4 import BeautifulSoup
-import csv, requests
+import requests
+
 
 
 app = Flask(__name__)
@@ -15,33 +16,42 @@ def check_link(page):
         print("Page loaded successfully")
 
 
-class ReturnTest(Resource):
+class ReturnIngredients(Resource):
 
     def get(self, URL):
-        link = URL
-        filename = "test.csv"
 
+        # create URL for Wikipedia page
+        link = "https://en.wikibooks.org/wiki/Cookbook:" + URL
+
+        # Verify wikipedia link works, abort if not
         page = requests.get(link)
         check_link(page)
 
+        # Obtain ingredients UL
         soup = BeautifulSoup(page.content, 'html.parser')
         body = soup.find("div", {"class": "mw-parser-output"})
         ingredients = body.find_all("ul")
 
-        with open(filename, "w") as output:
-            writer = csv.writer(output)
-            for row in ingredients:
-                cell = []
-                text = row.get_text()
-                cell.append(text)
-                if cell:
-                    print(text)
-                    writer.writerow(cell)
+        # Create string with all ingredients seperated by a comma
+        for row in ingredients:
+            ingredients_list = ""
+            if row.get_text():
+                ingredients_list += row.get_text()
 
-        return "Table Output"
+        ingredients_list = ingredients_list.replace('\n', ',')
+
+        # return ingredient string
+        return ingredients_list
 
 
-api.add_resource(ReturnTest, "/<string:URL>")
+class ReturnWorld(Resource):
+
+    def get(self):
+        return "Hello World"
+
+
+api.add_resource(ReturnIngredients, "/<string:URL>")
+
 
 
 if __name__ == "__main__":
